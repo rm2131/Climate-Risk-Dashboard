@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Climate Risks to Global Food Production</title>
+
+  <script src="libs/d3/d3.v7.min.js"></script>  
+  <script src="scripts/main.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body>
+  <header class="hero">
+    <h1>Climate Risks Dashboard</h1>
+
+    <p>
+      Exploring how rising temperatures correlate with agricultural output across 
+      184 countries and 7 staple crops (1961–2023). 
+      Regions highlighted here represent potential climate stress hotspots 
+      (not proven causation, as many factors influence crop yields, production and area harvested)
+    </p>
+
+    <div id="statBadges">
+
+      <div class="stat-badge">
+        <span class="val" id="stat-countries">0</span>
+        <span class="lbl">Countries</span>
+      </div>
+
+      <div class="stat-divider"></div>
+
+      <div class="stat-badge">
+        <span class="val" id="stat-crops">0</span>
+        <span class="lbl">Crops</span>
+      </div>
+
+      <div class="stat-divider"></div>
+
+      <div class="stat-badge">
+        <span class="val" id="stat-years">0–0</span>
+        <span class="lbl">Time Span</span>
+      </div>
+
+      <div class="stat-divider"></div>
+
+      <div class="stat-badge">
+        <span class="val" id="stat-selected">All Countries</span>
+        <span class="lbl">Selected Country</span>
+      </div>
+
+    </div>
+  </header>
+
+
+  <div id="controls">
+
+    <div class="ctrl-group">
+      <label>Metric</label>
+      <select id="metricSel">
+        <option value="Yield">Yield (kg/ha)</option>
+        <option value="Production">Production (t)</option>
+        <option value="Area harvested">Area Harvested (ha)</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group year-ctrl-group">
+      <label>Years</label>
+      <div class="year-bound">
+        <span>Start Year</span>
+        <input type="number" id="startYearInput" min="1961" max="2023" value="1961" step="1" aria-label="Start year" />
+      </div>
+      <div class="year-range-control" aria-label="Year range slider">
+        <div class="year-range-track"></div>
+        <div class="year-range-fill" id="yearRangeFill"></div>
+        <input type="range" id="startYearSlider" min="1961" max="2023" value="1961" step="1" aria-label="Start year slider" />
+        <input type="range" id="yearSlider" min="1961" max="2023" value="2010" step="1" aria-label="End year slider" />
+      </div>
+      <div class="year-bound">
+        <span>End Year</span>
+        <input type="number" id="yearInput" min="1961" max="2023" value="2010" step="1" aria-label="End year" />
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Countries</label>
+      <div class="multisel-wrap" id="countrySel-wrap">
+
+        <button class="multisel-trigger" id="countrySel-trigger" type="button">
+          <span class="multisel-pills-wrap" id="countrySel-pills">
+            <span class="multisel-placeholder">All countries</span>
+          </span>
+          <span class="multisel-caret">▾</span>
+        </button>
+
+        <div class="multisel-dropdown" id="countrySel-dropdown">
+          <input class="multisel-search" id="countrySel-search" type="text" placeholder="Search countries…">
+          <div class="multisel-list" id="countrySel-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Crops</label>
+      <div class="multisel-wrap" id="cropSel-wrap">
+        <button class="multisel-trigger" id="cropSel-trigger" type="button">
+          <span class="multisel-pills-wrap" id="cropSel-pills">
+            <span class="multisel-placeholder">All crops</span>
+          </span>
+          <span class="multisel-caret">▾</span>
+        </button>
+        <div class="multisel-dropdown" id="cropSel-dropdown">
+          <div class="multisel-list" id="cropSel-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <button id="resetBtn">Reset Selection</button>
+
+    <span class="selected-info" id="selInfo">
+      Showing all countries and all crops
+    </span>
+
+  </div>
+
+  <div id="main">
+
+    <div class="story-card" style="padding: 15px; background: #f8f9fa; border-left: 4px solid #2255aa; border-radius: 4px; margin-bottom: 15px;">
+      <p id="dynamic-story-text" style="margin: 0; color: #333; font-size: 14px; line-height: 1.5;"></p>
+    </div>
+
+
+    <div id="row1">
+
+      <div class="panel" id="mapPanel">
+        <div class="section-title">
+          Global Fever — Temperature Anomaly Trends
+        </div>
+        <svg id="tempSvg" class="chart-area"></svg>
+      </div>
+
+      <div class="panel" id="scatterPanel">
+        <div class="section-title" id="trendTitle">
+          Crop Yield (kg/ha) Trend Over Time
+        </div>
+
+        <svg id="trendSvg" class="chart-area"></svg>
+
+        <div class="legend-wrap" id="trendLegend"></div>
+      </div>
+
+    </div>
+
+    <div id="tooltip"></div>
+
+
+    <div id="row2">
+
+      <div class="panel" id="linePanel">
+        <div class="section-title" id="riskMapTitle">
+          Yield-Based Climate Risk Map
+        </div>
+
+        <button id="resetViewBtn">Reset View</button>
+
+        <svg id="riskMapSvg" class="chart-area"></svg>
+      </div>
+
+
+      <div class="panel" id="barPanel">
+
+        <div class="section-title" id="barPanelTitle">
+          Country Rankings
+        </div>
+
+        <div id="barControls" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:8px;">
+
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label for="barMetricSel">Rank by</label>
+            <select id="barMetricSel">
+              <option value="temp">Temperature Anomaly</option>
+              <option value="Yield">Yield (kg/ha)</option>
+              <option value="Production">Production (t)</option>
+              <option value="Area harvested">Area Harvested (ha)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label>Show</label>
+            <div id="rankToggle">
+              <button data-rank="top" class="rank-btn rank-active">
+                ▲ Highest
+              </button>
+              <button data-rank="bottom" class="rank-btn">
+                ▼ Lowest
+              </button>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label for="barNSel">Top N</label>
+            <select id="barNSel">
+              <option value="10">10</option>
+              <option value="15" selected>15</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+            </select>
+          </div>
+
+          <button id="selectBarCountriesBtn" class="bar-select-btn" type="button">Select shown</button>
+
+        </div>
+
+        <svg id="barSvg" class="chart-area"></svg>
+      </div>
+
+    </div>
+
+
+    <div id="row3">
+
+      <div class="panel" id="heatPanel">
+        <div class="section-title">
+          Climate Sensitivity Matrix (Country × Crop Correlation)
+        </div>
+
+        <svg id="heatSvg" class="chart-area"></svg>
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>
